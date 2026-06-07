@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>Калькулятор типов квартир</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Geologica:wght@300;400;500;600&display=swap');
+:root{
+  --bg:#F5F3EE;--surface:#FFFFFF;--surface2:#F0EDE7;
+  --border:#D8D4CC;--border-strong:#B8B4AC;
+  --text:#1A1916;--text-2:#6B6860;--text-3:#9B9890;
+  --accent:#2D4A3E;--accent-light:#E8F0EC;--accent-mid:#5A8A72;
+  --mono:'JetBrains Mono',monospace;--sans:'Geologica',sans-serif;
+  --r:6px;--rl:10px;--hh:56px;--bnh:60px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;-webkit-tap-highlight-color:transparent;overflow:hidden}
+.shell{display:flex;flex-direction:column;height:100%}
+.shell-header{flex-shrink:0;height:var(--hh);background:var(--accent);display:flex;align-items:center;padding:0 24px;gap:12px;border-bottom:1px solid rgba(255,255,255,.1);z-index:10}
+.logo{font-family:var(--mono);font-size:13px;font-weight:500;color:rgba(255,255,255,.9);letter-spacing:.05em}
+.logo span{color:rgba(255,255,255,.4);margin:0 8px}
+.version{font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.15);padding:2px 6px;border-radius:3px;margin-left:auto}
+.shell-body{flex:1;display:flex;overflow:hidden}
+aside{flex-shrink:0;width:260px;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;padding:20px 0}
+.nav-lbl{padding:0 16px 6px;font-family:var(--mono);font-size:10px;color:var(--text-3);letter-spacing:.08em;text-transform:uppercase;margin-top:16px}
+.nav-lbl:first-child{margin-top:0}
+aside nav a{display:flex;align-items:center;gap:8px;padding:8px 16px;font-size:13px;color:var(--text-2);text-decoration:none;cursor:pointer;transition:background .12s,color .12s;border-left:2px solid transparent;user-select:none}
+aside nav a:hover{background:var(--bg);color:var(--text)}
+aside nav a.active{color:var(--accent);background:var(--accent-light);border-left-color:var(--accent);font-weight:500}
+aside nav a svg{flex-shrink:0;opacity:.6}
+aside nav a.active svg{opacity:1}
+main{flex:1;overflow-y:auto;padding:28px 32px;background:var(--bg);-webkit-overflow-scrolling:touch}
+.bottom-nav{display:none}
+.page{display:none}.page.active{display:block}
+.page-title{font-size:20px;font-weight:600;margin-bottom:4px}
+.page-sub{font-size:13px;color:var(--text-2);margin-bottom:24px}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:20px;margin-bottom:16px}
+.panel-title{font-family:var(--mono);font-size:11px;color:var(--text-3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.field-row{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.field-label{font-size:13px;color:var(--text-2);white-space:nowrap;min-width:180px}
+input[type=number],input[type=text]{font-family:var(--sans);font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);color:var(--text);outline:none;transition:border-color .15s;width:100%;-webkit-appearance:none}
+input:focus{border-color:var(--accent-mid)}
+.col-hdr{font-family:var(--mono);font-size:10px;color:var(--text-3);letter-spacing:.04em}
+
+/* corpus block */
+.corpus-block{border:1px solid var(--border);border-radius:var(--rl);margin-bottom:16px;overflow:hidden}
+.corpus-head{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--accent);cursor:pointer;user-select:none}
+.corpus-head-name{flex:1;font-size:14px;font-weight:500;color:#fff}
+.corpus-head input[type=text]{background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,.35);border-radius:0;color:#fff;font-size:14px;font-weight:500;padding:2px 4px;width:100%}
+.corpus-head input[type=text]::placeholder{color:rgba(255,255,255,.4)}
+.corpus-head input[type=text]:focus{border-bottom-color:rgba(255,255,255,.9);outline:none}
+.corpus-body{padding:12px 16px 16px;background:var(--bg)}
+.corpus-toggle{background:none;border:none;cursor:pointer;color:rgba(255,255,255,.7);padding:2px;display:flex;align-items:center;transition:transform .2s}
+.corpus-toggle.open{transform:rotate(180deg)}
+
+/* section compact table */
+.sec-table{width:100%;border-collapse:collapse;margin-bottom:2px}
+.sec-table th{font-family:var(--mono);font-size:10px;color:var(--text-3);letter-spacing:.04em;padding:4px 6px;border-bottom:1px solid var(--border);background:var(--bg);text-align:left;font-weight:400}
+.sec-table td{padding:3px 4px;border-bottom:1px solid var(--border)}
+.sec-table tr:last-child td{border-bottom:none}
+.sec-table td input{padding:4px 6px;font-size:12px;border:1px solid transparent;background:transparent;border-radius:4px}
+.sec-table td input:hover{border-color:var(--border)}
+.sec-table td input:focus{border-color:var(--accent-mid);background:var(--surface)}
+.sec-table .pv-cell{font-family:var(--mono);font-size:11px;color:var(--text-3);padding:3px 6px;white-space:nowrap}
+.sec-table .del-cell{width:28px;text-align:center}
+.sec-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);margin-bottom:8px;overflow:hidden}
+.sec-head{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--surface);border-bottom:1px solid var(--border)}
+.sec-head input[type=text]{font-size:12px;font-weight:500;flex:1;padding:4px 6px;min-width:0}
+.sec-floors-wrap{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.sec-floors-wrap label{font-size:11px;color:var(--text-3);white-space:nowrap;font-family:var(--mono)}
+.sec-floors-wrap input{width:52px;padding:4px 6px;font-size:12px;text-align:center}
+.sec-add-row{padding:4px 8px}
+.icon-btn{width:26px;height:26px;display:flex;align-items:center;justify-content:center;background:none;border:1px solid var(--border);border-radius:var(--r);cursor:pointer;color:var(--text-2);transition:background .12s,color .12s;flex-shrink:0}
+.icon-btn:hover{background:var(--surface2);color:var(--text)}
+.icon-btn.danger:hover{background:#FEE;color:#C0392B;border-color:#F5C6CB}
+.dashed-btn{width:100%;padding:5px 8px;background:none;border:1px dashed var(--border-strong);border-radius:var(--r);color:var(--text-3);font-size:11px;cursor:pointer;font-family:var(--sans);transition:background .12s}
+.dashed-btn:hover{background:var(--surface2);color:var(--text-2)}
+.add-corpus-btn,.add-section-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;background:none;border:1px solid var(--border);border-radius:var(--r);color:var(--text-2);font-size:13px;cursor:pointer;font-family:var(--sans);transition:background .12s;margin-bottom:12px}
+.add-corpus-btn:hover,.add-section-btn:hover{background:var(--surface)}
+.primary-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 22px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);font-size:14px;font-weight:500;font-family:var(--sans);cursor:pointer;transition:opacity .15s}
+.primary-btn:hover{opacity:.88}
+.secondary-btn{display:inline-flex;align-items:center;gap:8px;padding:9px 18px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:var(--r);font-size:13px;font-family:var(--sans);cursor:pointer;transition:background .12s}
+.secondary-btn:hover{background:var(--surface2)}
+.btn-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.metrics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.metric-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:16px}
+.metric-card.accent{background:var(--accent-light);border-color:#B8D4C4}
+.metric-lbl{font-family:var(--mono);font-size:10px;color:var(--text-3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px}
+.metric-val{font-size:26px;font-weight:600;line-height:1}
+.metric-card.accent .metric-val{color:var(--accent)}
+.metric-unit{font-size:12px;font-weight:400;color:var(--text-2)}
+.data-table{width:100%;border-collapse:collapse;font-size:13px}
+.data-table th{text-align:left;font-family:var(--mono);font-size:10px;letter-spacing:.05em;color:var(--text-3);text-transform:uppercase;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--bg);font-weight:400}
+.data-table td{padding:9px 12px;border-bottom:1px solid var(--border)}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:var(--bg)}
+.data-table .group-row td{background:var(--accent-light);font-weight:500;font-size:12px;color:var(--accent);border-top:1px solid #B8D4C4}
+.data-table .total-row td{background:var(--surface2);font-weight:600;border-top:2px solid var(--border-strong)}
+.badge{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:500;padding:2px 8px;border-radius:3px;letter-spacing:.03em}
+.type-editor-row{display:grid;grid-template-columns:100px 70px 100px 100px 32px;gap:6px;align-items:center;margin-bottom:6px}
+.type-editor-hdr{display:grid;grid-template-columns:100px 70px 100px 100px 32px;gap:6px;margin-bottom:6px}
+.hint{font-size:12px;color:var(--text-3);line-height:1.6;margin-top:12px;padding:10px 12px;background:var(--bg);border-radius:var(--r);border:1px solid var(--border)}
+.result-corpus-title{font-size:14px;font-weight:600;color:var(--accent);margin:20px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--accent-light)}
+.result-corpus-title:first-child{margin-top:0}
+
+/* MOBILE */
+@media(max-width:680px){
+  html,body{overflow:hidden;height:100%}
+  .shell{height:100%}
+  .shell-header{padding:0 16px;height:50px}
+  .logo{font-size:12px}
+  aside{display:none}
+  .shell-body{flex-direction:column;overflow:hidden}
+  main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 24px;overscroll-behavior:contain}
+  .bottom-nav{display:flex;flex-shrink:0;height:var(--bnh);background:var(--surface);border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom,0px);z-index:10}
+  .bottom-nav a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;color:var(--text-3);cursor:pointer;text-decoration:none;transition:color .12s;padding:6px 4px;font-family:var(--mono);letter-spacing:.02em;border-top:2px solid transparent;user-select:none}
+  .bottom-nav a.active{color:var(--accent);border-top-color:var(--accent)}
+  .bottom-nav a.locked{opacity:.3;pointer-events:none}
+  .bottom-nav a svg{width:20px;height:20px}
+  .page-title{font-size:17px}.page-sub{font-size:12px;margin-bottom:14px}
+  .panel{padding:14px}
+  .field-row{flex-direction:column;align-items:flex-start;gap:6px}
+  .field-label{min-width:unset;white-space:normal}
+  .type-editor-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .type-editor-row,.type-editor-hdr{grid-template-columns:90px 58px 88px 88px 32px;min-width:370px}
+  .metrics-grid{grid-template-columns:1fr 1fr;gap:8px}
+  .metric-val{font-size:20px}.metric-card{padding:12px}
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .primary-btn{width:100%;justify-content:center;padding:13px;font-size:15px}
+  .secondary-btn{width:100%;justify-content:center}
+  .btn-row{flex-direction:column}
+  .add-corpus-btn,.add-section-btn{width:100%;justify-content:center}
+  #page-input .btn-row{padding-bottom:8px}
+  .corpus-head{padding:10px 12px}
+  .corpus-body{padding:10px 12px 12px}
+  .sec-head{flex-wrap:wrap;gap:4px}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="shell-header">
+    <div class="logo">АПТ<span>//</span>КАЛЬКУЛЯТОР</div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+      <button onclick="loadProject()" title="Открыть проект" style="display:flex;align-items:center;gap:6px;padding:5px 12px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:5px;color:rgba(255,255,255,.85);font-size:12px;font-family:var(--sans);cursor:pointer;transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.2)'" onmouseout="this.style.background='rgba(255,255,255,.12)'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+        Открыть
+      </button>
+      <button onclick="saveProject()" title="Сохранить проект" style="display:flex;align-items:center;gap:6px;padding:5px 12px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:5px;color:rgba(255,255,255,.85);font-size:12px;font-family:var(--sans);cursor:pointer;transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.2)'" onmouseout="this.style.background='rgba(255,255,255,.12)'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Сохранить
+      </button>
+      <div class="version">v3.1</div>
+    </div>
+    <input type="file" id="file-input" accept=".json" style="display:none" onchange="onFileSelected(event)">
+  </div>
+  <div class="shell-body">
+    <aside>
+      <div class="nav-lbl">Ввод</div>
+      <nav>
+        <a class="active" onclick="showPage('input')" data-page="input">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>Исходные данные
+        </a>
+        <a onclick="showPage('types')" data-page="types">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 10h16M4 14h8M4 18h8"/></svg>Типы квартир
+        </a>
+      </nav>
+      <div class="nav-lbl">Результаты</div>
+      <nav>
+        <a id="nav-summary" onclick="showPage('results')" data-page="results" style="opacity:.4;pointer-events:none">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-8"/></svg>Сводная таблица
+        </a>
+        <a id="nav-list" onclick="showPage('list')" data-page="list" style="opacity:.4;pointer-events:none">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 4v4M16 4v4M3 10h18"/></svg>Список квартир
+        </a>
+      </nav>
+    </aside>
+
+    <main>
+      <!-- INPUT -->
+      <div class="page active" id="page-input">
+        <div class="page-title">Исходные данные</div>
+        <div class="page-sub">Структура ЖК: корпуса и секции</div>
+        <div id="corpus-container"></div>
+        <button class="add-corpus-btn" onclick="addCorpus()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Добавить корпус
+        </button>
+        <div class="btn-row">
+          <button class="primary-btn" onclick="calculate()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>Рассчитать
+          </button>
+        </div>
+      </div>
+
+      <!-- TYPES -->
+      <div class="page" id="page-types">
+        <div class="page-title">Типы квартир</div>
+        <div class="page-sub">Редактируйте диапазоны и добавляйте собственные типы</div>
+        <div class="panel">
+          <div class="panel-title">Классификатор</div>
+          <div class="type-editor-scroll">
+            <div class="type-editor-hdr">
+              <span class="col-hdr">Название</span><span class="col-hdr">Комнат</span>
+              <span class="col-hdr">От, м²</span><span class="col-hdr">До, м²</span><span></span>
+            </div>
+            <div id="types-editor"></div>
+          </div>
+          <button class="dashed-btn" onclick="addType()">+ добавить тип</button>
+          <div class="hint">Диапазон: <b>от ≤ площадь &lt; до</b>. Верхняя граница без ограничений — введите 9999.<br>Квартиры с площадью = 0 или незаполненные исключаются из расчёта.</div>
+        </div>
+      </div>
+
+      <!-- RESULTS -->
+      <div class="page" id="page-results">
+        <div class="page-title">Сводная таблица</div>
+        <div class="page-sub" id="results-sub"></div>
+        <div class="metrics-grid" id="summary-metrics"></div>
+        <div class="panel">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+            <div class="panel-title" style="margin:0;border:none;padding:0">По типам — весь проект</div>
+            <button class="secondary-btn" onclick="exportExcel()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Экспорт в Excel
+            </button>
+          </div>
+          <div class="table-scroll"><table class="data-table" id="types-table"></table></div>
+        </div>
+        <div id="corpus-results"></div>
+      </div>
+
+      <!-- LIST -->
+      <div class="page" id="page-list">
+        <div class="page-title">Список квартир</div>
+        <div class="page-sub">Все квартиры с типами по корпусам и секциям</div>
+        <div class="panel">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+            <div class="panel-title" style="margin:0;border:none;padding:0">Поквартирно</div>
+            <button class="secondary-btn" onclick="exportExcel()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Экспорт в Excel
+            </button>
+          </div>
+          <div class="table-scroll"><table class="data-table" id="apts-table"></table></div>
+        </div>
+      </div>
+    </main>
+
+    <nav class="bottom-nav">
+      <a class="active" onclick="showPage('input')" data-page="input">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>Данные
+      </a>
+      <a onclick="showPage('types')" data-page="types">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 10h16M4 14h8M4 18h8"/></svg>Типы
+      </a>
+      <a class="locked" id="mob-results" onclick="showPage('results')" data-page="results">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-8"/></svg>Сводка
+      </a>
+      <a class="locked" id="mob-list" onclick="showPage('list')" data-page="list">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 4v4M16 4v4M3 10h18"/></svg>Список
+      </a>
+    </nav>
+  </div>
+</div>
+
+<script>
+/* ── DATA ── */
+let TYPES = [
+  {name:'СТ-С',  rooms:0,aMin:0,   aMax:28.5},
+  {name:'1К-М',  rooms:1,aMin:0,   aMax:36.5},
+  {name:'1К-С',  rooms:1,aMin:36.5,aMax:39.5},
+  {name:'1К-Б',  rooms:1,aMin:39.5,aMax:42},
+  {name:'1К-ЭБ', rooms:1,aMin:42,  aMax:9999},
+  {name:'2К-М',  rooms:2,aMin:0,   aMax:50.5},
+  {name:'2К-С',  rooms:2,aMin:50.5,aMax:53.5},
+  {name:'2К-Б',  rooms:2,aMin:53.5,aMax:56.5},
+  {name:'2К-ЭБ', rooms:2,aMin:56.5,aMax:9999},
+  {name:'3К-М',  rooms:3,aMin:0,   aMax:68},
+  {name:'3К-С',  rooms:3,aMin:68,  aMax:72},
+  {name:'3К-Б',  rooms:3,aMin:72,  aMax:9999},
+  {name:'4К-М',  rooms:4,aMin:0,   aMax:86},
+  {name:'4К-С',  rooms:4,aMin:86,  aMax:9999},
+];
+
+const BADGE_COLORS=[
+  {bg:'#E8F0EC',tx:'#2D4A3E',br:'#B8D4C4'},
+  {bg:'#E6F1FB',tx:'#0C447C',br:'#B5D4F4'},
+  {bg:'#EEEDFE',tx:'#26215C',br:'#AFA9EC'},
+  {bg:'#FAEEDA',tx:'#633806',br:'#FAC775'},
+  {bg:'#FAECE7',tx:'#4A1B0C',br:'#F5C4B3'},
+  {bg:'#EAF3DE',tx:'#27500A',br:'#C0DD97'},
+  {bg:'#FBEAF0',tx:'#4B1528',br:'#F4C0D1'},
+  {bg:'#F1EFE8',tx:'#2C2C2A',br:'#D3D1C7'},
+  {bg:'#FCEBEB',tx:'#501313',br:'#F7C1C1'},
+];
+
+/* corpus = { name, open, sections: [{name, floors, apts:[{rooms,area}]}] } */
+let corpora = [
+  {name:'Корпус 1', open:true, sections:[
+    {name:'Секция 1', floors:'9', apts:[{rooms:'0',area:'29'},{rooms:'2',area:'52'},{rooms:'1',area:'38'}]}
+  ]}
+];
+let lastResult = null;
+
+/* ── HELPERS ── */
+function badgeStyle(name){
+  const idx=TYPES.findIndex(t=>t.name===name);
+  const c=BADGE_COLORS[(idx<0?0:idx)%BADGE_COLORS.length];
+  return `background:${c.bg};color:${c.tx};border:1px solid ${c.br}`;
+}
+function getType(rooms,area){
+  const r=parseInt(rooms),a=parseFloat(area);
+  if(isNaN(r)||isNaN(a)||a===0||area===''||area===undefined)return null;
+  for(const t of TYPES){if(t.rooms===r&&a>=t.aMin&&a<t.aMax)return t.name;}
+  return '?';
+}
+function previewType(rooms,area){
+  const t=getType(rooms,area);
+  if(!t)return'—';
+  return`<span class="badge" style="${badgeStyle(t)}">${t}</span>`;
+}
+function typeSummaryFor(apts_with_floors){
+  const s={};
+  TYPES.forEach(t=>{s[t.name]={count:0,area:0};});
+  apts_with_floors.forEach(a=>{
+    if(!s[a.type])s[a.type]={count:0,area:0};
+    s[a.type].count+=a.floors;
+    s[a.type].area+=a.area*a.floors;
+  });
+  return s;
+}
+
+/* ── NAVIGATION ── */
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('[data-page]').forEach(a=>a.classList.toggle('active',a.dataset.page===id));
+  document.querySelector('main').scrollTop=0;
+}
+
+/* ── RENDER INPUT ── */
+function renderAll(){
+  const c=document.getElementById('corpus-container');
+  c.innerHTML='';
+  corpora.forEach((corp,ci)=>{
+    const wrap=document.createElement('div');
+    wrap.className='corpus-block';
+    // header
+    const canDelete=corpora.length>1;
+    wrap.innerHTML=`
+      <div class="corpus-head" onclick="toggleCorpus(${ci},event)">
+        <input type="text" value="${escHtml(corp.name)}" placeholder="Название корпуса"
+          onclick="event.stopPropagation()"
+          oninput="updateCorpus(${ci},'name',this.value)"
+          style="max-width:220px">
+        <div style="flex:1"></div>
+        ${canDelete?`<button class="icon-btn danger" style="border-color:rgba(255,255,255,.3);color:rgba(255,255,255,.7)" onclick="removeCorpus(${ci});event.stopPropagation()" title="Удалить корпус">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+        </button>`:''}
+        <button class="corpus-toggle ${corp.open?'open':''}" onclick="toggleCorpus(${ci},event)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+      </div>
+      <div class="corpus-body" id="corp-body-${ci}" style="${corp.open?'':'display:none'}">
+        <div id="sections-${ci}"></div>
+        <button class="add-section-btn" onclick="addSection(${ci})">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Добавить секцию
+        </button>
+      </div>`;
+    c.appendChild(wrap);
+    renderSections(ci);
+  });
+}
+
+function toggleCorpus(ci,e){
+  if(e.target.tagName==='INPUT'||e.target.tagName==='BUTTON'||e.target.tagName==='SVG'||e.target.tagName==='PATH') return;
+  corpora[ci].open=!corpora[ci].open;
+  const body=document.getElementById('corp-body-'+ci);
+  body.style.display=corpora[ci].open?'':'none';
+  const btn=body.previousElementSibling.querySelector('.corpus-toggle');
+  if(btn)btn.classList.toggle('open',corpora[ci].open);
+}
+
+function renderSections(ci){
+  const c=document.getElementById('sections-'+ci);
+  if(!c)return;
+  c.innerHTML='';
+  corpora[ci].sections.forEach((sec,si)=>{
+    const canDel=corpora[ci].sections.length>1;
+    const d=document.createElement('div');
+    d.className='sec-block';
+    const aptRows=sec.apts.map((a,ai)=>`
+      <tr>
+        <td><input type="number" inputmode="numeric" min="0" max="20" value="${a.rooms}" placeholder="—" oninput="updateApt(${ci},${si},${ai},'rooms',this.value)" style="width:100%"></td>
+        <td><input type="number" inputmode="decimal" min="0" step="0.1" value="${a.area}" placeholder="—" oninput="updateApt(${ci},${si},${ai},'area',this.value)" style="width:100%"></td>
+        <td class="pv-cell" id="pv-${ci}-${si}-${ai}">${previewType(a.rooms,a.area)}</td>
+        <td class="del-cell"><button class="icon-btn danger" onclick="removeApt(${ci},${si},${ai})"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg></button></td>
+      </tr>`).join('');
+    d.innerHTML=`
+      <div class="sec-head">
+        <input type="text" value="${escHtml(sec.name)}" placeholder="Секция" oninput="updateSection(${ci},${si},'name',this.value)">
+        <div class="sec-floors-wrap">
+          <label>эт.</label>
+          <input type="number" inputmode="numeric" min="1" max="200" value="${sec.floors||1}" oninput="updateSection(${ci},${si},'floors',this.value)">
+        </div>
+        ${canDel?`<button class="icon-btn danger" onclick="removeSection(${ci},${si})" title="Удалить секцию"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button>`:''}
+      </div>
+      <div style="overflow-x:auto">
+        <table class="sec-table">
+          <thead><tr>
+            <th style="width:72px">Комнат</th>
+            <th style="width:90px">Площадь, м²</th>
+            <th>Тип</th>
+            <th style="width:28px"></th>
+          </tr></thead>
+          <tbody>${aptRows}</tbody>
+        </table>
+      </div>
+      <div class="sec-add-row">
+        <button class="dashed-btn" onclick="addApt(${ci},${si})">+ квартира</button>
+      </div>`;
+    c.appendChild(d);
+  });
+}
+
+function escHtml(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+
+/* mutations */
+function addCorpus(){
+  corpora.push({name:`Корпус ${corpora.length+1}`,open:true,sections:[{name:'Секция 1',floors:'9',apts:[{rooms:'',area:''}]}]});
+  renderAll();
+}
+function removeCorpus(ci){if(corpora.length<=1)return;corpora.splice(ci,1);renderAll();}
+function updateCorpus(ci,k,v){corpora[ci][k]=v;}
+function addSection(ci){
+  const n=corpora[ci].sections.length+1;
+  corpora[ci].sections.push({name:`Секция ${n}`,floors:'9',apts:[{rooms:'',area:''}]});
+  renderSections(ci);
+}
+function removeSection(ci,si){if(corpora[ci].sections.length<=1)return;corpora[ci].sections.splice(si,1);renderSections(ci);}
+function updateSection(ci,si,k,v){corpora[ci].sections[si][k]=v;}
+function addApt(ci,si){corpora[ci].sections[si].apts.push({rooms:'',area:''});renderSections(ci);}
+function removeApt(ci,si,ai){if(corpora[ci].sections[si].apts.length<=1)return;corpora[ci].sections[si].apts.splice(ai,1);renderSections(ci);}
+function updateApt(ci,si,ai,k,v){
+  corpora[ci].sections[si].apts[ai][k]=v;
+  const el=document.getElementById(`pv-${ci}-${si}-${ai}`);
+  if(el)el.innerHTML=previewType(corpora[ci].sections[si].apts[ai].rooms,corpora[ci].sections[si].apts[ai].area);
+}
+
+/* ── TYPES EDITOR ── */
+function renderTypesEditor(){
+  document.getElementById('types-editor').innerHTML=TYPES.map((t,i)=>`
+    <div class="type-editor-row">
+      <input type="text" value="${t.name}" oninput="updateType(${i},'name',this.value)" style="font-family:var(--mono);font-size:12px">
+      <input type="number" inputmode="numeric" min="0" max="20" value="${t.rooms}" oninput="updateType(${i},'rooms',this.value)">
+      <input type="number" inputmode="decimal" min="0" step="0.5" value="${t.aMin}" oninput="updateType(${i},'aMin',this.value)">
+      <input type="number" inputmode="decimal" min="0" step="0.5" value="${t.aMax}" oninput="updateType(${i},'aMax',this.value)">
+      <button class="icon-btn danger" onclick="removeType(${i})">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+      </button>
+    </div>`).join('');
+}
+function updateType(i,k,v){TYPES[i][k]=(k==='name')?v:(parseFloat(v)||0);}
+function removeType(i){if(TYPES.length<=1)return;TYPES.splice(i,1);renderTypesEditor();}
+function addType(){TYPES.push({name:'Новый',rooms:0,aMin:0,aMax:9999});renderTypesEditor();}
+
+/* ── CALCULATE ── */
+function buildCorpusData(corp){
+  const apts=[];
+  corp.sections.forEach((sec,si)=>{
+    const floors=parseInt(sec.floors)||1;
+    sec.apts.forEach(apt=>{
+      const area=parseFloat(apt.area)||0;
+      if(area===0||apt.area===''||apt.area===undefined)return;
+      apts.push({secName:sec.name,secIdx:si+1,floors,rooms:parseInt(apt.rooms)||0,area,type:getType(apt.rooms,apt.area)});
+    });
+  });
+  return apts;
+}
+
+function calculate(){
+  const allCorpData=corpora.map((corp,ci)=>({
+    name:corp.name||`Корпус ${ci+1}`,
+    apts:buildCorpusData(corp),
+    sections:corp.sections
+  }));
+
+  const allApts=allCorpData.flatMap((cd,ci)=>cd.apts.map(a=>({...a,corpName:cd.name,corpIdx:ci+1})));
+  const totalApts=allApts.reduce((s,a)=>s+a.floors,0);
+  const totalArea=allApts.reduce((s,a)=>s+a.area*a.floors,0);
+  const totalTypeSummary=typeSummaryFor(allApts);
+
+  lastResult={allCorpData,allApts,totalApts,totalArea,totalTypeSummary};
+
+  // metrics
+  document.getElementById('results-sub').textContent=
+    `${corpora.length} корп. · ${corpora.reduce((s,c)=>s+c.sections.length,0)} секц. · итого ${totalApts} квартир`;
+
+  document.getElementById('summary-metrics').innerHTML=`
+    <div class="metric-card accent"><div class="metric-lbl">Всего квартир</div><div class="metric-val">${totalApts} <span class="metric-unit">шт.</span></div></div>
+    <div class="metric-card"><div class="metric-lbl">Суммарная площадь</div><div class="metric-val">${totalArea.toFixed(1)} <span class="metric-unit">м²</span></div></div>
+    <div class="metric-card"><div class="metric-lbl">Корпусов</div><div class="metric-val">${corpora.length} <span class="metric-unit">шт.</span></div></div>
+    <div class="metric-card"><div class="metric-lbl">Секций всего</div><div class="metric-val">${corpora.reduce((s,c)=>s+c.sections.length,0)} <span class="metric-unit">шт.</span></div></div>`;
+
+  // global type table
+  const activeTypes=Object.entries(totalTypeSummary).filter(([,v])=>v.count>0);
+  document.getElementById('types-table').innerHTML=`
+    <thead><tr><th>Тип</th><th>Кол-во</th><th>Площадь, м²</th><th>Доля, %</th></tr></thead>
+    <tbody>${activeTypes.map(([name,v])=>`<tr>
+      <td><span class="badge" style="${badgeStyle(name)}">${name}</span></td>
+      <td>${v.count}</td><td>${v.area.toFixed(1)}</td>
+      <td>${totalApts>0?((v.count/totalApts)*100).toFixed(1):'0.0'}%</td>
+    </tr>`).join('')}</tbody>`;
+
+  // per-corpus results
+  const cr=document.getElementById('corpus-results');
+  cr.innerHTML='';
+  allCorpData.forEach(cd=>{
+    const cTotal=cd.apts.reduce((s,a)=>s+a.floors,0);
+    const cArea=cd.apts.reduce((s,a)=>s+a.area*a.floors,0);
+    const cTypes=typeSummaryFor(cd.apts);
+    const cActive=Object.entries(cTypes).filter(([,v])=>v.count>0);
+    const div=document.createElement('div');
+    div.innerHTML=`
+      <div class="result-corpus-title">${escHtml(cd.name)} — ${cTotal} кв. / ${cArea.toFixed(1)} м²</div>
+      <div class="panel" style="margin-bottom:16px">
+        <div class="panel-title">По типам</div>
+        <div class="table-scroll"><table class="data-table">
+          <thead><tr><th>Тип</th><th>Кол-во</th><th>Площадь, м²</th><th>Доля, %</th></tr></thead>
+          <tbody>${cActive.map(([name,v])=>`<tr>
+            <td><span class="badge" style="${badgeStyle(name)}">${name}</span></td>
+            <td>${v.count}</td><td>${v.area.toFixed(1)}</td>
+            <td>${cTotal>0?((v.count/cTotal)*100).toFixed(1):'0.0'}%</td>
+          </tr>`).join('')}</tbody>
+        </table></div>
+      </div>`;
+    cr.appendChild(div);
+  });
+
+  // apt list with corpus+section grouping
+  let idx=1;
+  let rows='';
+  allCorpData.forEach((cd,ci)=>{
+    cd.apts.forEach(a=>{
+      rows+=`<tr>
+        <td style="color:var(--text-3);font-family:var(--mono);font-size:11px">${idx++}</td>
+        <td>${escHtml(cd.name)}</td><td>${escHtml(a.secName)}</td>
+        <td>${a.floors}</td><td>${a.rooms}</td><td>${a.area} м²</td>
+        <td><span class="badge" style="${badgeStyle(a.type)}">${a.type||'?'}</span></td>
+      </tr>`;
+    });
+  });
+  document.getElementById('apts-table').innerHTML=`
+    <thead><tr><th>№</th><th>Корпус</th><th>Секция</th><th>Этажей</th><th>Комн.</th><th>Площадь</th><th>Тип</th></tr></thead>
+    <tbody>${rows}</tbody>`;
+
+  ['nav-summary','nav-list'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.style.opacity='1';el.style.pointerEvents='auto';}
+  });
+  ['mob-results','mob-list'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.classList.remove('locked');
+  });
+  showPage('results');
+}
+
+/* ── EXCEL EXPORT ── */
+function exportExcel(){
+  if(!lastResult)return;
+  const {allCorpData,allApts,totalApts,totalArea,totalTypeSummary}=lastResult;
+  const wb=XLSX.utils.book_new();
+
+  // Sheet 1: summary
+  const secRows=[];
+  allCorpData.forEach(cd=>{
+    cd.sections.forEach((sec,si)=>{
+      const floors=parseInt(sec.floors)||1;
+      const validApts=sec.apts.filter(a=>parseFloat(a.area)>0).length;
+      secRows.push([cd.name, sec.name||`Секция ${si+1}`, floors, validApts, floors*validApts]);
+    });
+  });
+  const ws1=XLSX.utils.aoa_to_sheet([
+    ['Показатель','Значение'],
+    ['Всего квартир',totalApts],
+    ['Суммарная площадь, м²',parseFloat(totalArea.toFixed(1))],
+    ['Корпусов',corpora.length],
+    ['Секций',corpora.reduce((s,c)=>s+c.sections.length,0)],
+    [],
+    ['Корпус','Секция','Этажей','Квартир на этаже','Итого квартир'],
+    ...secRows,
+  ]);
+  ws1['!cols']=[{wch:18},{wch:18},{wch:10},{wch:18},{wch:16}];
+  XLSX.utils.book_append_sheet(wb,ws1,'Итого');
+
+  // Sheet 2: global by type
+  const activeTypes=Object.entries(totalTypeSummary).filter(([,v])=>v.count>0);
+  const ws2=XLSX.utils.aoa_to_sheet([
+    ['Тип','Количество, шт.','Площадь, м²','Доля, %'],
+    ...activeTypes.map(([name,v])=>[name,v.count,parseFloat(v.area.toFixed(1)),parseFloat(totalApts>0?((v.count/totalApts)*100).toFixed(1):'0.0')]),
+    [],['ИТОГО',totalApts,parseFloat(totalArea.toFixed(1)),100],
+  ]);
+  ws2['!cols']=[{wch:14},{wch:18},{wch:16},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws2,'По типам — проект');
+
+  // Sheets per corpus
+  allCorpData.forEach(cd=>{
+    const cTotal=cd.apts.reduce((s,a)=>s+a.floors,0);
+    const cArea=cd.apts.reduce((s,a)=>s+a.area*a.floors,0);
+    const cTypes=typeSummaryFor(cd.apts);
+    const cActive=Object.entries(cTypes).filter(([,v])=>v.count>0);
+    const sheetName=(cd.name||'Корпус').substring(0,28);
+    const ws=XLSX.utils.aoa_to_sheet([
+      [`Корпус: ${cd.name}`,''],
+      ['Квартир',cTotal],['Площадь, м²',parseFloat(cArea.toFixed(1))],
+      [],
+      ['Тип','Количество, шт.','Площадь, м²','Доля, %'],
+      ...cActive.map(([name,v])=>[name,v.count,parseFloat(v.area.toFixed(1)),parseFloat(cTotal>0?((v.count/cTotal)*100).toFixed(1):'0.0')]),
+      [],['ИТОГО',cTotal,parseFloat(cArea.toFixed(1)),100],
+    ]);
+    ws['!cols']=[{wch:14},{wch:18},{wch:16},{wch:12}];
+    XLSX.utils.book_append_sheet(wb,ws,sheetName);
+  });
+
+  // Sheet: apt list
+  let aptIdx=1;
+  const ws3=XLSX.utils.aoa_to_sheet([
+    ['№','Корпус','Секция','Этажей','Комнат','Площадь, м²','Тип'],
+    ...allApts.map(a=>[aptIdx++,a.corpName,a.secName,a.floors,a.rooms,a.area,a.type||'?']),
+  ]);
+  ws3['!cols']=[{wch:6},{wch:16},{wch:16},{wch:10},{wch:10},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,ws3,'Список квартир');
+
+  // Sheet: classifier
+  const ws4=XLSX.utils.aoa_to_sheet([
+    ['Название','Комнат','От, м²','До, м²'],
+    ...TYPES.map(t=>[t.name,t.rooms,t.aMin,t.aMax]),
+  ]);
+  ws4['!cols']=[{wch:16},{wch:10},{wch:12},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws4,'Классификатор');
+
+  const now=new Date();
+  const d=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  XLSX.writeFile(wb,`квартиры_${d}.xlsx`);
+}
+
+/* ── SAVE / LOAD ── */
+function saveProject(){
+  const data = {
+    version: '3.1',
+    savedAt: new Date().toISOString(),
+    corpora: corpora,
+    types: TYPES
+  };
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const now = new Date();
+  const d = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  // derive project name from first corpus
+  const projName = (corpora[0]&&corpora[0].name?corpora[0].name.replace(/[^а-яёa-z0-9_\-\s]/gi,'').trim():'проект');
+  a.href = url;
+  a.download = `апт_${projName}_${d}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Проект сохранён');
+}
+
+function loadProject(){
+  document.getElementById('file-input').value = '';
+  document.getElementById('file-input').click();
+}
+
+function onFileSelected(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    try {
+      const data = JSON.parse(ev.target.result);
+      if(!data.corpora || !Array.isArray(data.corpora)) throw new Error('Неверный формат файла');
+      corpora = data.corpora;
+      if(data.types && Array.isArray(data.types)) TYPES = data.types;
+      lastResult = null;
+      // lock result tabs
+      ['nav-summary','nav-list'].forEach(id=>{
+        const el=document.getElementById(id);
+        if(el){el.style.opacity='.4';el.style.pointerEvents='none';}
+      });
+      ['mob-results','mob-list'].forEach(id=>{
+        const el=document.getElementById(id);
+        if(el)el.classList.add('locked');
+      });
+      renderAll();
+      renderTypesEditor();
+      showPage('input');
+      showToast('Проект загружен: ' + (data.corpora.length) + ' корп.');
+    } catch(err) {
+      showToast('Ошибка загрузки: ' + err.message, true);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function showToast(msg, isError){
+  let t = document.getElementById('toast');
+  if(!t){
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);padding:9px 18px;border-radius:8px;font-size:13px;font-family:var(--sans);z-index:9999;pointer-events:none;transition:opacity .3s;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.15)';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.background = isError ? '#C0392B' : '#2D4A3E';
+  t.style.color = '#fff';
+  t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=>{ t.style.opacity='0'; }, 2500);
+}
+
+/* ── INIT ── */
+renderAll();
+renderTypesEditor();
+</script>
+</body>
+</html>
